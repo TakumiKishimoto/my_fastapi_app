@@ -6,8 +6,14 @@ import numpy as np
 # FastAPIのインスタンスを作成
 app = FastAPI()
 
-# モデルのロード
-model = joblib.load("./models/iris_model.pkl")
+# グローバル変数としてモデルを保持
+model = None
+
+# アプリ起動時にモデルをロードする
+@app.on_event("startup")
+async def load_model():
+    global model
+    model = joblib.load("./models/iris_model.pkl")
 
 # 入力データのスキーマを定義
 class IrisInput(BaseModel):
@@ -19,6 +25,10 @@ class IrisInput(BaseModel):
 # 推論エンドポイントを作成
 @app.post("/predict/")
 def predict(input_data: IrisInput):
+    if model is None:
+        raise HTTPException(status_code=503, detail="Model not loaded")
+
+    # 入力データをnumpy配列に変換
     data = np.array([[input_data.sepal_length, input_data.sepal_width,
                       input_data.petal_length, input_data.petal_width]])
     
@@ -34,4 +44,3 @@ def predict(input_data: IrisInput):
         "prediction_proba": prediction_proba[0].tolist(),
         "feature_importances": feature_importances.tolist()
     }
-
